@@ -1,0 +1,50 @@
+name: Build libVLCUnityPlugin.so (Android ARM64)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    name: Build VLC Unity Plugin for Android ARM64
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y ninja-build python3-pip git unzip
+        pip3 install meson
+
+    - name: Download Android NDK
+      run: |
+        wget https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
+        unzip android-ndk-r21e-linux-x86_64.zip
+        mv android-ndk-r21e /opt/android-ndk
+
+    - name: Set environment
+      run: |
+        echo "ANDROID_NDK_HOME=/opt/android-ndk" >> $GITHUB_ENV
+
+    - name: Prepare libvlc (example)
+      run: |
+        mkdir -p external/libvlc
+        curl -L https://your-server.com/android-libvlc.tar.gz | tar xz -C external/libvlc
+
+    - name: Configure Meson
+      run: |
+        meson setup build-android \
+          --cross-file cross-android-arm64.txt
+
+    - name: Build
+      run: |
+        ninja -C build-android
+
+    - name: Upload .so
+      uses: actions/upload-artifact@v4
+      with:
+        name: libVLCUnityPlugin.so
+        path: build-android/PluginSource/libVLCUnityPlugin.so
