@@ -19,24 +19,30 @@ jobs:
       - name: Setup Android SDK and NDK
         uses: android-actions/setup-android@v2
         with:
-          sdk-version: '8512546'          # 你的 SDK 版本
-          ndk-version: '21.4.7075529'    # 你的 NDK 版本
-
-      - name: Add sdkmanager to PATH
-        run: echo "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          sdk-version: '8512546'
+          ndk-version: '21.4.7075529'
 
       - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build meson pkg-config
 
-      - name: Copy prebuilt libs and headers
+      - name: Copy prebuilt libs and headers into NDK sysroot
         run: |
-          mkdir -p libs/arm64-v8a
-          cp path/to/libvlc.so libs/arm64-v8a/
-          cp path/to/libc++_shared.so libs/arm64-v8a/
-          # 假设你有 include 目录放 VLC 头文件
-          # 确保 include/ 存在且有头文件
+          API_LEVEL=21
+          SYSROOT_LIB="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/$API_LEVEL"
+          SYSROOT_INC="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
+
+          mkdir -p "$SYSROOT_LIB" "$SYSROOT_INC"
+
+          # 复制预编译 libvlc.so 和 libc++_shared.so
+          cp path/to/libvlc.so "$SYSROOT_LIB/"
+          cp path/to/libc++_shared.so "$SYSROOT_LIB/"
+
+          # 复制 libvlc 头文件
+          cp -r path/to/libvlc/include/* "$SYSROOT_INC/"
+
+          echo "Installed libvlc.so and headers into NDK sysroot"
 
       - name: Write Meson cross file
         run: |
@@ -44,9 +50,8 @@ jobs:
           [binaries]
           c = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
           cpp = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang++"
-          ar = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/ar"
-          ld = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/ld"
-          strip = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/strip"
+          ar = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+          strip = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
 
           [host_machine]
           system = 'android'
@@ -58,7 +63,6 @@ jobs:
       - name: Configure Meson build
         run: |
           meson setup builddir --cross-file=android_arm64_clang.txt \
-            -Dlibvlc_path=./libs/arm64-v8a \
             --prefix=$(pwd)/install
 
       - name: Build libVLCUnityPlugin.so
@@ -68,7 +72,7 @@ jobs:
       - name: Collect libVLCUnityPlugin.so
         run: |
           mkdir -p release_files
-          cp builddir/libVLCUnityPlugin.so release_files/
+          cp builddir/PluginSource/libVLCUnityPlugin.so release_files/
 
       - name: Zip and upload
         run: |
