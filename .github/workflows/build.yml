@@ -1,50 +1,82 @@
-name: Build libVLCUnityPlugin.so (Android ARM64)
+name: Build libVLCUnityPlugin for Android arm64
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build-android:
+  build-libvlcunify:
     runs-on: ubuntu-latest
-    name: Build VLC Unity Plugin for Android ARM64
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Set up dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y ninja-build python3-pip git unzip
-        pip3 install meson
+      - name: Setup Android SDK and NDK
+        uses: android-actions/setup-android@v2
+        with:
+          sdk-version: '8512546'          # 你的 SDK 版本
+          ndk-version: '21.4.7075529'    # 你的 NDK 版本
 
-    - name: Download Android NDK
-      run: |
-        wget https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
-        unzip android-ndk-r21e-linux-x86_64.zip
-        mv android-ndk-r21e /opt/android-ndk
+      - name: Add sdkmanager to PATH
+        run: echo "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" >> $GITHUB_PATH
 
-    - name: Set environment
-      run: |
-        echo "ANDROID_NDK_HOME=/opt/android-ndk" >> $GITHUB_ENV
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build meson pkg-config
 
-    - name: Prepare libvlc (example)
-      run: |
-        mkdir -p external/libvlc
-        curl -L https://your-server.com/android-libvlc.tar.gz | tar xz -C external/libvlc
+      - name: Copy prebuilt libs and headers
+        run: |
+          mkdir -p libs/arm64-v8a
+          cp path/to/libvlc.so libs/arm64-v8a/
+          cp path/to/libc++_shared.so libs/arm64-v8a/
+          # 假设你有 include 目录放 VLC 头文件
+          # 确保 include/ 存在且有头文件
 
-    - name: Configure Meson
-      run: |
-        meson setup build-android \
-          --cross-file cross-android-arm64.txt
+      - name: Write Meson cross file
+        run: |
+          cat > android_arm64_clang.txt <<EOF
+          [binaries]
+          c = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
+          cpp = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang++"
+          ar = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/ar"
+          ld = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/ld"
+          strip = "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/strip"
 
-    - name: Build
-      run: |
-        ninja -C build-android
+          [host_machine]
+          system = 'android'
+          cpu_family = 'aarch64'
+          cpu = 'aarch64'
+          endian = 'little'
+          EOF
 
-    - name: Upload .so
-      uses: actions/upload-artifact@v4
-      with:
-        name: libVLCUnityPlugin.so
-        path: build-android/PluginSource/libVLCUnityPlugin.so
+      - name: Configure Meson build
+        run: |
+          meson setup builddir --cross-file=android_arm64_clang.txt \
+            -Dlibvlc_path=./libs/arm64-v8a \
+            --prefix=$(pwd)/install
+
+      - name: Build libVLCUnityPlugin.so
+        run: |
+          meson compile -C builddir
+
+      - name: Collect libVLCUnityPlugin.so
+        run: |
+          mkdir -p release_files
+          cp builddir/libVLCUnityPlugin.so release_files/
+
+      - name: Zip and upload
+        run: |
+          cd release_files
+          zip ../vlc-unity-plugin.zip *
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: vlc-unity-plugin.zip
+          tag_name: vlc-unity-plugin-v${{ github.run_number }}
