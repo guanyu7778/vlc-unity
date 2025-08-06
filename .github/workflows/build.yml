@@ -36,11 +36,11 @@ jobs:
           mkdir -p "$SYSROOT_LIB" "$SYSROOT_INC"
 
           # 复制预编译 libvlc.so 和 libc++_shared.so
-          cp path/to/libvlc.so "$SYSROOT_LIB/"
-          cp path/to/libc++_shared.so "$SYSROOT_LIB/"
+          cp prebuild/libs/arm64/libvlc.so "$SYSROOT_LIB/"
+          cp prebuild/libs/arm64/libc++_shared.so "$SYSROOT_LIB/"
 
           # 复制 libvlc 头文件
-          cp -r path/to/libvlc/include/* "$SYSROOT_INC/"
+          cp -r prebuild/includes/* "$SYSROOT_INC/"
 
           echo "Installed libvlc.so and headers into NDK sysroot"
 
