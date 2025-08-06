@@ -71,7 +71,6 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
 *.dll*
-*.so*
 *.o*
 PluginSource/include/**
 PluginSource/sdk/**
