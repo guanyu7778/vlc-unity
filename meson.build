@@ -198,7 +198,10 @@ configure_file(input: 'config.h.meson',
   output: 'config.h',
   configuration: cdata)
 
-libvlc_dep = dependency('libvlc', version: '>= 4.0')
+libvlc_dep = declare_dependency(
+  include_directories: include_directories('prebuild/includes'),
+  link_args: ['-Lprebuild/libs/arm64', '-lvlc']
+)
 
 # Plugin sources
 subdir('PluginSource')
