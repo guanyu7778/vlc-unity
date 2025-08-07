@@ -1,0 +1,49 @@
+name: Check libVLCUnityPlugin for Android arm64
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-libvlcunify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Android SDK and NDK
+        uses: android-actions/setup-android@v2
+        with:
+          sdk-version: '8512546'
+          ndk-version: '21.4.7075529'
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build meson pkg-config
+
+      - name: Copy prebuilt libs and headers into NDK sysroot
+        run: |
+          API_LEVEL=21
+          SYSROOT_LIB="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/$API_LEVEL"
+          SYSROOT_INC="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
+
+          mkdir -p "$SYSROOT_LIB" "$SYSROOT_INC"
+
+          # 复制预编译 libvlc.so 和 libc++_shared.so
+          cp prebuild/libs/arm64/libvlc.so "$SYSROOT_LIB/"
+          cp prebuild/libs/arm64/libc++_shared.so "$SYSROOT_LIB/"
+
+          # 复制 libvlc 头文件
+          cp -r prebuild/includes/* "$SYSROOT_INC/"
+
+          echo "Installed libvlc.so and headers into NDK sysroot"
+
+       name: Check mediacodec in libvlc.so
+          run: |
+            strings prebuild/libs/arm64/libvlc.so | grep mediacodec || echo "mediacodec not found!"
